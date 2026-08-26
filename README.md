@@ -40,24 +40,31 @@ An intelligent, production-grade **Audio Analysis, Multi-Engine Cloud Lyrics Fet
 
 ## 🚀 Installation (安裝方式)
 
-### Method 1: Git Clone into ComfyUI custom_nodes
-Navigate to your ComfyUI root directory and run:
+### 1. Install AudioPrompter
 ```bash
 cd ComfyUI/custom_nodes
 git clone https://github.com/okanchou9/ComfyUI-MiniMax-Music3-AudioPrompter.git
 pip install -r ComfyUI-MiniMax-Music3-AudioPrompter/requirements.txt
 ```
 
-### Method 2: Via ComfyUI-Manager (Coming Soon)
-Search for `ComfyUI-MiniMax-Music3-AudioPrompter` and click Install.
+### 2. (Optional Advanced) Install Open-RVQ-Encoder for Melody Conditioning
+If you want bottom-up melody and rhythm conditioning from reference tracks:
+```bash
+cd ComfyUI/custom_nodes
+git clone https://github.com/johndpope/open-rvq-encoder-minimax-music3.git
+```
+**Model Weights Setup:**
+- Download `dav.pth` from [MiniMaxAI/MiniMax-Music3](https://huggingface.co/MiniMaxAI/MiniMax-Music3) $\rightarrow$ place in `ComfyUI/models/vae/dav.pth`.
+- Download `minimax_music3_rvq_encoder_v4_169m_autoregressive_depth_recommended.safetensors` from [SimpleTuner](https://huggingface.co/SimpleTuner/open-rvq-encoder-minimax-music3) $\rightarrow$ place in `ComfyUI/models/minimax_music3_rvq_encoders/`.
 
 ---
 
-## 🎹 Quick Start Workflow (範例工作流程)
+## 🎹 Ready-to-Use Workflows (範例工作流程)
 
-We provide an end-to-end verified full-song remix workflow in [`workflows/minimax_music3_remix_fullsong.json`](workflows/minimax_music3_remix_fullsong.json).
+We provide two verified, production-grade workflows in `workflows/`:
 
-### Workflow Node Pipeline:
+### 1. Standard Full-Song Remix Workflow (`workflows/minimax_music3_remix_fullsong.json`)
+*Pure Prompt-Driven 287-second Epic Song Generation.*
 ```
 [LoadAudio] ──> [MiniMaxMusic3AudioAutoPrompter] 
                      │              │
@@ -72,10 +79,28 @@ We provide an end-to-end verified full-song remix workflow in [`workflows/minima
                  [KSampler] <── [EmptyMiniMaxMusic3LatentAudio]
                      │
                      ▼
-             [VAEDecodeAudio]
-                     │
-                     ▼
-             [SaveAudioMP3] (320kbps)
+             [VAEDecodeAudio] ──> [SaveAudioMP3] (320kbps)
+```
+
+### 2. Dual-Track Advanced Remix Workflow (`workflows/minimax_music3_audioprompter_plus_rvq_v4.json`)
+*Combines Global AudioPrompter Structuring with Bottom-Up RVQ-v4 Melody Guidance.*
+```
+[LoadAudio]
+   │
+   ├──> [MiniMaxMusic3AudioAutoPrompter] (caption + lyrics + structure)
+   │           │               │
+   └──> [MiniMaxMusic3RVQReferenceEncoderLoader] (v4 169M)
+               │               │
+               ▼               ▼
+   [MiniMaxMusic3ReferenceAudioEncode] (reference_interval=5, cfg_scale=1.2)
+               │               │
+        (conditioning)      (seconds)
+               │               │
+               ▼               ▼
+           [KSampler] <── [EmptyMiniMaxMusic3LatentAudio]
+               │
+               ▼
+       [VAEDecodeAudio] ──> [SaveAudioMP3] (320kbps)
 ```
 
 ---
@@ -106,7 +131,8 @@ We provide an end-to-end verified full-song remix workflow in [`workflows/minima
 
 ## 💡 Best Practice & Recommendations (推薦最佳設定)
 
-- **`cfg_scale`**: Set to **`1.2`** in `MiniMaxMusic3TextEncode`. Anything above `1.3` causes cumulative autoregressive speed-up drift on 4+ minute audio.
+- **`cfg_scale`**: Set to **`1.2`** in `MiniMaxMusic3TextEncode` / `MiniMaxMusic3ReferenceAudioEncode`. Anything above `1.3` causes cumulative autoregressive speed-up drift on 4+ minute audio.
+- **`reference_interval`**: Set to **`5`** in RVQ mode. Setting to `1` is too rigid and can conflict with lyrics phrasing.
 - **`max_duration`**: Set to **`287.0`** (or your original song's exact seconds).
 - **Vocal Elevation**: Keep `vocal_expression = Wide Pitch Range & Soaring Climax` to ensure energetic chorus delivery.
 
@@ -122,5 +148,6 @@ This project is licensed under the [MIT License](LICENSE).
 
 - [ComfyUI](https://github.com/comfyanonymous/ComfyUI)
 - [MiniMax AI](https://www.minimaxi.com/)
+- [johndpope & SimpleTuner Team](https://github.com/johndpope/open-rvq-encoder-minimax-music3) (for Open RVQ Encoders)
 - [NetEase Cloud Music & LRCLib](https://lrclib.net/)
 - [faster-whisper](https://github.com/SYSTRAN/faster-whisper) & [librosa](https://github.com/librosa/librosa)
