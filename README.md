@@ -1,4 +1,4 @@
-# ComfyUI-MiniMax-AudioPrompter 🎵✨
+# ComfyUI-MiniMax-Music3-AudioPrompter 🎵✨
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![ComfyUI](https://img.shields.io/badge/ComfyUI-Custom_Node-blue.svg)](https://github.com/comfyanonymous/ComfyUI)
@@ -44,12 +44,12 @@ An intelligent, production-grade **Audio Analysis, Multi-Engine Cloud Lyrics Fet
 Navigate to your ComfyUI root directory and run:
 ```bash
 cd ComfyUI/custom_nodes
-git clone https://github.com/okanchou9/ComfyUI-MiniMax-AudioPrompter.git
-pip install -r ComfyUI-MiniMax-AudioPrompter/requirements.txt
+git clone https://github.com/okanchou9/ComfyUI-MiniMax-Music3-AudioPrompter.git
+pip install -r ComfyUI-MiniMax-Music3-AudioPrompter/requirements.txt
 ```
 
 ### Method 2: Via ComfyUI-Manager (Coming Soon)
-Search for `ComfyUI-MiniMax-AudioPrompter` and click Install.
+Search for `ComfyUI-MiniMax-Music3-AudioPrompter` and click Install.
 
 ---
 
