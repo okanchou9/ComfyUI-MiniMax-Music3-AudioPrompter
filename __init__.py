@@ -604,6 +604,63 @@ class MiniMaxMusic3AudioAutoPrompter:
         }
 
 
+class MiniMaxMusic3ExtractRVQCandidates:
+    """Extracts RVQ semantic candidates directly from audio using 169M encoder and saves/outputs them."""
+    @classmethod
+    def INPUT_TYPES(cls):
+        return {
+            "required": {
+                "reference_encoder": ("MINIMAX_MUSIC3_RVQ_REFERENCE_ENCODER",),
+                "audio": ("AUDIO",),
+                "filename_prefix": ("STRING", {"default": "rvq_cache/reference_c0"}),
+                "auto_save": ("BOOLEAN", {"default": True, "label_on": "Save .pt Cache File", "label_off": "Memory Only"}),
+            }
+        }
+
+    RETURN_TYPES = ("SEMANTIC_CANDIDATES", "FLOAT")
+    RETURN_NAMES = ("semantic_candidates", "duration_seconds")
+    OUTPUT_NODE = True
+    FUNCTION = "extract"
+    CATEGORY = "audio/minimax"
+
+    def extract(self, reference_encoder, audio, filename_prefix="rvq_cache/reference_c0", auto_save=True):
+        import comfy.model_management
+        device = comfy.model_management.get_torch_device()
+        codes, semantic_candidates = reference_encoder.predict_codes_with_semantic_candidates(
+            audio["waveform"],
+            int(audio["sample_rate"]),
+            semantic_top_k=5,
+            device=device,
+        )
+        duration_seconds = float(semantic_candidates.shape[0]) / 25.0
+
+        ui_text = f"Extracted {semantic_candidates.shape[0]} frames ({duration_seconds:.2f}s)"
+        if auto_save:
+            import folder_paths
+            output_dir = folder_paths.get_output_directory()
+            full_output_folder, filename, counter, subfolder, filename_prefix = folder_paths.get_save_image_path(
+                filename_prefix, output_dir
+            )
+            os.makedirs(full_output_folder, exist_ok=True)
+            file = f"{filename}_{counter:05}_.pt"
+            full_path = os.path.join(full_output_folder, file)
+
+            payload = {
+                "semantic_candidates": semantic_candidates.detach().cpu().long(),
+                "frames": semantic_candidates.shape[0],
+                "duration_seconds": duration_seconds,
+                "version": "v4"
+            }
+            torch.save(payload, full_path)
+            print(f"[MiniMaxMusic3ExtractRVQCandidates] Saved cache to: {full_path}")
+            ui_text += f" | Saved: {file}"
+
+        return {
+            "ui": {"text": [ui_text]},
+            "result": (semantic_candidates, duration_seconds)
+        }
+
+
 class SaveMiniMaxMusic3RVQCache:
     """Saves RVQ semantic candidates to a compact PyTorch file (~280KB) for instant reuse."""
     @classmethod
@@ -750,6 +807,7 @@ class MiniMaxMusic3TextEncodeWithCachedReference:
 
 NODE_CLASS_MAPPINGS = {
     "MiniMaxMusic3AudioAutoPrompter": MiniMaxMusic3AudioAutoPrompter,
+    "MiniMaxMusic3ExtractRVQCandidates": MiniMaxMusic3ExtractRVQCandidates,
     "SaveMiniMaxMusic3RVQCache": SaveMiniMaxMusic3RVQCache,
     "LoadMiniMaxMusic3RVQCache": LoadMiniMaxMusic3RVQCache,
     "MiniMaxMusic3TextEncodeWithCachedReference": MiniMaxMusic3TextEncodeWithCachedReference,
@@ -757,6 +815,7 @@ NODE_CLASS_MAPPINGS = {
 
 NODE_DISPLAY_NAME_MAPPINGS = {
     "MiniMaxMusic3AudioAutoPrompter": "MiniMax Music 3 Audio Auto-Prompter 🎵",
+    "MiniMaxMusic3ExtractRVQCandidates": "Extract & Save RVQ Candidates ⚡💾",
     "SaveMiniMaxMusic3RVQCache": "Save MiniMax Music3 RVQ Cache 💾",
     "LoadMiniMaxMusic3RVQCache": "Load MiniMax Music3 RVQ Cache ⚡",
     "MiniMaxMusic3TextEncodeWithCachedReference": "MiniMax Music3 Text Encode (Cached RVQ) ⚡",

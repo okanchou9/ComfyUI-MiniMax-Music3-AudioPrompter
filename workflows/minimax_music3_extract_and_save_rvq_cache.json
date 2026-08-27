@@ -1,0 +1,138 @@
+{
+  "last_node_id": 3,
+  "last_link_id": 2,
+  "nodes": [
+    {
+      "id": 1,
+      "type": "LoadAudio",
+      "pos": [
+        50,
+        100
+      ],
+      "size": [
+        320,
+        150
+      ],
+      "flags": {},
+      "order": 0,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "AUDIO",
+          "type": "AUDIO",
+          "links": [
+            1
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "LoadAudio"
+      },
+      "widgets_values": [
+        "sample.mp3",
+        "audio"
+      ]
+    },
+    {
+      "id": 2,
+      "type": "MiniMaxMusic3RVQReferenceEncoderLoader",
+      "pos": [
+        50,
+        300
+      ],
+      "size": [
+        500,
+        140
+      ],
+      "flags": {},
+      "order": 1,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "MINIMAX_MUSIC3_RVQ_REFERENCE_ENCODER",
+          "type": "MINIMAX_MUSIC3_RVQ_REFERENCE_ENCODER",
+          "links": [
+            2
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "MiniMaxMusic3RVQReferenceEncoderLoader"
+      },
+      "widgets_values": [
+        "minimax_music3_rvq_encoder_v4_169m_autoregressive_depth_recommended.safetensors",
+        "dav.pth"
+      ]
+    },
+    {
+      "id": 3,
+      "type": "MiniMaxMusic3ExtractRVQCandidates",
+      "pos": [
+        600,
+        100
+      ],
+      "size": [
+        450,
+        200
+      ],
+      "flags": {},
+      "order": 2,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "reference_encoder",
+          "type": "MINIMAX_MUSIC3_RVQ_REFERENCE_ENCODER",
+          "link": 2
+        },
+        {
+          "name": "audio",
+          "type": "AUDIO",
+          "link": 1
+        }
+      ],
+      "outputs": [
+        {
+          "name": "semantic_candidates",
+          "type": "SEMANTIC_CANDIDATES",
+          "links": []
+        },
+        {
+          "name": "duration_seconds",
+          "type": "FLOAT",
+          "links": []
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "MiniMaxMusic3ExtractRVQCandidates"
+      },
+      "widgets_values": [
+        "rvq_cache/my_song_c0",
+        true
+      ]
+    }
+  ],
+  "links": [
+    [
+      1,
+      1,
+      0,
+      3,
+      1,
+      "AUDIO"
+    ],
+    [
+      2,
+      2,
+      0,
+      3,
+      0,
+      "MINIMAX_MUSIC3_RVQ_REFERENCE_ENCODER"
+    ]
+  ],
+  "groups": [],
+  "config": {},
+  "extra": {},
+  "version": 0.4
+}
