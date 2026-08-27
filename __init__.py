@@ -23,7 +23,6 @@ class MiniMaxMusic3AudioAutoPrompter:
     def INPUT_TYPES(cls):
         return {
             "required": {
-                "audio": ("AUDIO",),
                 "auto_detect_genre": ("BOOLEAN", {
                     "default": True,
                     "label_on": "Auto Detect (AI)",
@@ -58,35 +57,37 @@ class MiniMaxMusic3AudioAutoPrompter:
                 "instruments_tag": ([
                     "Grand Piano + Acoustic Guitar (鋼琴 + 原聲吉他掃弦)",
                     "Grand Piano + Lush Strings (鋼琴 + 溫暖弦樂群)",
-                    "Rhodes Piano + Acoustic Guitar (復古電鋼琴 + 吉他)",
-                    "Electric Guitar + Tight Bass (電吉他 + 律動貝斯)",
-                    "Synth Arpeggio + Bass (合成器 + 飽滿低音)",
-                    "Fingerstyle Acoustic Guitar (原聲吉他指彈)",
+                    "Overdriven Electric Guitar (電吉他失真破音伴奏)",
+                    "Clean Electric Guitar + Bass (清音電吉他 + 貝斯律動)",
+                    "Cinematic Strings + Horns (電影感大編制弦樂銅管)",
+                    "Atmospheric Synths + Pad (氛圍合成器鋪底)",
+                    "Acoustic Guitar Fingerpicking (木吉他精緻指彈)",
                     "Auto Detect (自動分析)"
                 ], {
                     "default": "Grand Piano + Acoustic Guitar (鋼琴 + 原聲吉他掃弦)",
-                    "tooltip": "Select core lead and accompaniment instruments."
+                    "tooltip": "Select primary instrumentation and accompaniment style."
                 }),
                 "vocal_tag": ([
                     "Emotional Male Vocal (深情磁性男聲)",
-                    "Raspy Soulful Male (沙啞靈魂撕裂感男聲)",
-                    "Sweet Female Vocal (甜美抒情女聲)",
-                    "Breathy Emotive Vocal (氣聲抒情唱腔)",
-                    "Duet Vocal Harmony (男女對唱/和聲)",
-                    "Instrumental Only (純音樂無人聲)",
-                    "Auto / Model Default (預設)"
+                    "Bright Pop Female Vocal (清亮流行女聲)",
+                    "Husky Soulful Male (沙啞靈魂男聲)",
+                    "Ethereal Dreamy Female (空靈夢幻女聲)",
+                    "Dynamic Powerful Belting (爆發力美聲高音)",
+                    "Warm Baritone (溫暖醇厚中低音)",
+                    "Crisp Rap / Spoken Word (清晰節奏說唱)",
+                    "Auto Detect (自動分析)"
                 ], {
                     "default": "Emotional Male Vocal (深情磁性男聲)",
-                    "tooltip": "Select vocal tone and singing style."
+                    "tooltip": "Select lead vocal character and vocal texture."
                 }),
                 "vocal_expression": ([
                     "Wide Pitch Range & Soaring Climax (寬廣音域 + 副歌高亢爆發 - 告別唸經推薦!)",
-                    "Soulful Melodic Vibrato (靈魂深情 + 自然顫音旋律)",
-                    "Intimate Breathy Nuance (貼耳氣聲 + 細膩微起伏)",
-                    "Steady Standard Delivery (標準平穩演唱)"
+                    "Dynamic Emotional Intensity (隨情緒遞進起伏 - 推薦!)",
+                    "Steady Intimate Tone (平穩敘事溫柔低語)",
+                    "Dramatic Operatic Vibrato (戲劇張力美聲顫音)"
                 ], {
                     "default": "Wide Pitch Range & Soaring Climax (寬廣音域 + 副歌高亢爆發 - 告別唸經推薦!)",
-                    "tooltip": "Injects melodic contours, pitch elevation in choruses, and expressive vibrato to eliminate monotone reciting."
+                    "tooltip": "Controls melody pitch contour and chorus lift. Prevents flat robotic monotone delivery."
                 }),
                 "human_phrasing": ([
                     "Organic Natural Breathing (真人呼吸感 + 靈活時值頓挫 - 推薦!)",
@@ -114,6 +115,7 @@ class MiniMaxMusic3AudioAutoPrompter:
                 }),
             },
             "optional": {
+                "audio": ("AUDIO", {"tooltip": "Optional reference audio for acoustic DSP analysis and duration."}),
                 "song_title_or_hint": ("STRING", {
                     "multiline": False,
                     "default": "雨一直下 - 张宇",
@@ -451,41 +453,50 @@ class MiniMaxMusic3AudioAutoPrompter:
             c1 = "\n".join(selected[mid:])
             return f"{intro_header}[verse 1]\n{v1}\n\n[chorus]\n(expressive melodic lift)\n{c1}\n\n[outro]\n{outro_cue}".strip()
 
-    def analyze_and_generate(self, audio, auto_detect_genre=True, language="zh (Chinese)", use_cloud_lyrics=True, rhythm_tag="Steady Pop Drums (穩定流行鼓組律動)", instruments_tag="Grand Piano + Acoustic Guitar (鋼琴 + 原聲吉他掃弦)", vocal_tag="Emotional Male Vocal (深情磁性男聲)", vocal_expression="Wide Pitch Range & Soaring Climax (寬廣音域 + 副歌高亢爆發 - 告別唸經推薦!)", human_phrasing="Organic Natural Breathing (真人呼吸感 + 靈活時值頓挫 - 推薦!)", intro_tag="Short Intro ~5s (極簡短前奏 5秒內進主歌 - 推薦!)", production_tag="Clean Studio Mix (錄音室級清晰立體聲混音)", song_title_or_hint="雨一直下 - 张宇", target_generation_duration=0.0, repeat_final_chorus=True, insert_instrumental_solo=True, include_bridge=True, outro_style="Slow Fade Out (慢速淡出結尾)", dynamic_progression="Building Climax (主歌鋪墊，副歌與結尾爆發高潮)", genre_override="", extra_tags_custom="", lyrics_override="", bpm_override=0.0, whisper_model_size="base", transcribe_lyrics=True):
-        waveform = audio["waveform"]
-        sr = audio.get("sample_rate", 44100)
+    def analyze_and_generate(self, auto_detect_genre=True, language="zh (Chinese)", use_cloud_lyrics=True, rhythm_tag="Steady Pop Drums (穩定流行鼓組律動)", instruments_tag="Grand Piano + Acoustic Guitar (鋼琴 + 原聲吉他掃弦)", vocal_tag="Emotional Male Vocal (深情磁性男聲)", vocal_expression="Wide Pitch Range & Soaring Climax (寬廣音域 + 副歌高亢爆發 - 告別唸經推薦!)", human_phrasing="Organic Natural Breathing (真人呼吸感 + 靈活時值頓挫 - 推薦!)", intro_tag="Short Intro ~5s (極簡短前奏 5秒內進主歌 - 推薦!)", production_tag="Clean Studio Mix (錄音室級清晰立體聲混音)", audio=None, song_title_or_hint="雨一直下 - 张宇", target_generation_duration=0.0, repeat_final_chorus=True, insert_instrumental_solo=True, include_bridge=True, outro_style="Slow Fade Out (慢速淡出結尾)", dynamic_progression="Building Climax (主歌鋪墊，副歌與結尾爆發高潮)", genre_override="", extra_tags_custom="", lyrics_override="", bpm_override=0.0, whisper_model_size="base", transcribe_lyrics=True):
+        if audio is not None and "waveform" in audio:
+            waveform = audio["waveform"]
+            sr = audio.get("sample_rate", 44100)
 
-        if waveform.ndim == 3:
-            if waveform.shape[1] <= 8:
-                wav_mono = waveform[0].mean(dim=0).cpu().float().numpy()
+            if waveform.ndim == 3:
+                if waveform.shape[1] <= 8:
+                    wav_mono = waveform[0].mean(dim=0).cpu().float().numpy()
+                else:
+                    wav_mono = waveform[0].mean(dim=-1).cpu().float().numpy()
+            elif waveform.ndim == 2:
+                if waveform.shape[0] <= 8:
+                    wav_mono = waveform.mean(dim=0).cpu().float().numpy()
+                else:
+                    wav_mono = waveform.mean(dim=-1).cpu().float().numpy()
             else:
-                wav_mono = waveform[0].mean(dim=-1).cpu().float().numpy()
-        elif waveform.ndim == 2:
-            if waveform.shape[0] <= 8:
-                wav_mono = waveform.mean(dim=0).cpu().float().numpy()
-            else:
-                wav_mono = waveform.mean(dim=-1).cpu().float().numpy()
+                wav_mono = waveform.cpu().float().numpy()
+
+            audio_duration = float(len(wav_mono)) / float(sr)
         else:
-            wav_mono = waveform.cpu().float().numpy()
-
-        audio_duration = float(len(wav_mono)) / float(sr)
+            audio_duration = target_generation_duration if target_generation_duration > 0.0 else 287.0
+            wav_mono = None
+            sr = 44100
         final_target_duration = target_generation_duration if target_generation_duration > 0.0 else audio_duration
         is_full_song = (target_generation_duration == 0.0) or (final_target_duration >= 220.0)
 
         try:
-            if sr != 22050:
-                y_dsp = librosa.resample(wav_mono, orig_sr=sr, target_sr=22050)
-                dsp_sr = 22050
+            if wav_mono is not None:
+                if sr != 22050:
+                    y_dsp = librosa.resample(wav_mono, orig_sr=sr, target_sr=22050)
+                    dsp_sr = 22050
+                else:
+                    y_dsp = wav_mono
+                    dsp_sr = sr
+
+                detected_bpm = self.estimate_robust_tempo(y_dsp, dsp_sr)
+
+                chroma = librosa.feature.chroma_cqt(y=y_dsp, sr=dsp_sr)
+                key_idx = int(np.argmax(np.mean(chroma, axis=1)))
+                pitch_classes = ["C", "D flat", "D", "E flat", "E", "F", "F sharp", "G", "A flat", "A", "B flat", "B"]
+                detected_key = f"{pitch_classes[key_idx]} major"
             else:
-                y_dsp = wav_mono
-                dsp_sr = sr
-
-            detected_bpm = self.estimate_robust_tempo(y_dsp, dsp_sr)
-
-            chroma = librosa.feature.chroma_cqt(y=y_dsp, sr=dsp_sr)
-            key_idx = int(np.argmax(np.mean(chroma, axis=1)))
-            pitch_classes = ["C", "D flat", "D", "E flat", "E", "F", "F sharp", "G", "A flat", "A", "B flat", "B"]
-            detected_key = f"{pitch_classes[key_idx]} major"
+                detected_bpm = 75.0
+                detected_key = "E major"
             
             auto_genre = "Mandopop Ballad, Contemporary Pop" if "zh" in language else "Contemporary Pop, Melodic Ballad"
         except Exception as e:
