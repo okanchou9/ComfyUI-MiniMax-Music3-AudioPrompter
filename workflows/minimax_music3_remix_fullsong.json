@@ -410,7 +410,7 @@
     },
     {
       "id": 9,
-      "type": "VAEDecodeAudio",
+      "type": "VAEDecodeAudioTiled",
       "pos": [
         1880,
         100
@@ -444,9 +444,12 @@
         }
       ],
       "properties": {
-        "Node name for S&R": "VAEDecodeAudio"
+        "Node name for S&R": "VAEDecodeAudioTiled"
       },
-      "widgets_values": []
+      "widgets_values": [
+        1024,
+        64
+      ]
     },
     {
       "id": 10,
