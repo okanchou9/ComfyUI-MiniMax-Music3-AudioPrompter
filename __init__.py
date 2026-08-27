@@ -603,10 +603,162 @@ class MiniMaxMusic3AudioAutoPrompter:
             "result": (full_caption, final_lyrics, float(final_bpm), detected_key, float(final_target_duration), summary_text)
         }
 
+
+class SaveMiniMaxMusic3RVQCache:
+    """Saves RVQ semantic candidates to a compact PyTorch file (~280KB) for instant reuse."""
+    @classmethod
+    def INPUT_TYPES(cls):
+        return {
+            "required": {
+                "semantic_candidates": ("SEMANTIC_CANDIDATES",),
+                "filename_prefix": ("STRING", {"default": "rvq_cache/reference_c0"}),
+            }
+        }
+
+    RETURN_TYPES = ()
+    OUTPUT_NODE = True
+    FUNCTION = "save_cache"
+    CATEGORY = "audio/minimax"
+
+    def save_cache(self, semantic_candidates, filename_prefix="rvq_cache/reference_c0"):
+        import folder_paths
+        output_dir = folder_paths.get_output_directory()
+        full_output_folder, filename, counter, subfolder, filename_prefix = folder_paths.get_save_image_path(
+            filename_prefix, output_dir
+        )
+        os.makedirs(full_output_folder, exist_ok=True)
+        file = f"{filename}_{counter:05}_.pt"
+        full_path = os.path.join(full_output_folder, file)
+
+        if not isinstance(semantic_candidates, torch.Tensor):
+            raise ValueError("semantic_candidates must be a PyTorch Tensor")
+
+        # Save tensor on CPU
+        payload = {
+            "semantic_candidates": semantic_candidates.detach().cpu().long(),
+            "frames": semantic_candidates.shape[0],
+            "duration_seconds": float(semantic_candidates.shape[0]) / 25.0,
+            "version": "v4"
+        }
+        torch.save(payload, full_path)
+        print(f"[SaveMiniMaxMusic3RVQCache] Saved {semantic_candidates.shape[0]} frames ({payload['duration_seconds']:.2f}s) to: {full_path}")
+        return {"ui": {"text": [f"Saved RVQ cache: {file} ({payload['duration_seconds']:.2f}s)"]}}
+
+
+class LoadMiniMaxMusic3RVQCache:
+    """Loads cached RVQ semantic candidates with 0-second latency, bypassing DAV & 169M encoder."""
+    @classmethod
+    def INPUT_TYPES(cls):
+        import folder_paths
+        output_dir = folder_paths.get_output_directory()
+        cache_dir = os.path.join(output_dir, "rvq_cache")
+        os.makedirs(cache_dir, exist_ok=True)
+        files = [f for f in os.listdir(cache_dir) if f.endswith(".pt")] if os.path.exists(cache_dir) else []
+        if not files:
+            files = ["none"]
+
+        return {
+            "required": {
+                "cache_file": (sorted(files), {"tooltip": "Select cached .pt file from output/rvq_cache/"}),
+            }
+        }
+
+    RETURN_TYPES = ("SEMANTIC_CANDIDATES", "FLOAT")
+    RETURN_NAMES = ("semantic_candidates", "duration_seconds")
+    FUNCTION = "load_cache"
+    CATEGORY = "audio/minimax"
+
+    def load_cache(self, cache_file):
+        import folder_paths
+        output_dir = folder_paths.get_output_directory()
+        cache_path = os.path.join(output_dir, "rvq_cache", cache_file)
+
+        if not os.path.exists(cache_path) or cache_file == "none":
+            raise FileNotFoundError(f"RVQ cache file not found: {cache_path}. Please generate and save cache first.")
+
+        data = torch.load(cache_path, map_location="cpu", weights_only=True)
+        if isinstance(data, dict) and "semantic_candidates" in data:
+            candidates = data["semantic_candidates"]
+            duration = float(data.get("duration_seconds", candidates.shape[0] / 25.0))
+        elif isinstance(data, torch.Tensor):
+            candidates = data
+            duration = float(candidates.shape[0] / 25.0)
+        else:
+            raise ValueError(f"Invalid RVQ cache format in {cache_path}")
+
+        print(f"[LoadMiniMaxMusic3RVQCache] Loaded {candidates.shape[0]} frames ({duration:.2f}s) instantly from {cache_file}!")
+        return (candidates, duration)
+
+
+class MiniMaxMusic3TextEncodeWithCachedReference:
+    """Directly encodes CLIP text with cached RVQ semantic candidates without loading DAV or 169M model."""
+    @classmethod
+    def INPUT_TYPES(cls):
+        return {
+            "required": {
+                "clip": ("CLIP",),
+                "semantic_candidates": ("SEMANTIC_CANDIDATES",),
+                "caption": ("STRING", {"multiline": True, "dynamicPrompts": True}),
+                "lyrics": ("STRING", {"multiline": True, "dynamicPrompts": True}),
+                "seed": ("INT", {"default": 42, "min": 0, "max": 18446744073709551615}),
+                "reference_interval": ("INT", {"default": 1, "min": 1, "max": 10, "step": 1, "tooltip": "1 = Strict melody adherence (recommended for strong remix); 5 = Looser styling."}),
+            },
+            "optional": {
+                "cfg_scale": ("FLOAT", {"default": 1.2, "min": 0.0, "max": 100.0, "step": 0.1}),
+                "top_k": ("INT", {"default": 50, "min": 1, "max": 16384}),
+            }
+        }
+
+    RETURN_TYPES = ("CONDITIONING", "FLOAT")
+    RETURN_NAMES = ("conditioning", "seconds")
+    FUNCTION = "encode"
+    CATEGORY = "conditioning/minimax music"
+
+    def encode(
+        self,
+        clip,
+        semantic_candidates,
+        caption,
+        lyrics,
+        seed,
+        reference_interval=1,
+        cfg_scale=1.2,
+        top_k=50,
+    ):
+        frame_count = semantic_candidates.shape[0]
+        tokens = clip.tokenize(
+            caption,
+            lyrics=lyrics,
+            seed=seed,
+            max_audio_frames=frame_count,
+            cfg_scale=cfg_scale,
+            top_k=top_k,
+        )
+        tokens["minimax_reference_semantic_candidates"] = semantic_candidates
+        tokens["minimax_reference_interval"] = reference_interval
+        conditioning = clip.encode_from_tokens_scheduled(tokens)
+        for cond in conditioning:
+            hidden = cond[0]
+            cond[1]["conditioning_scale"] = torch.ones(
+                (hidden.shape[0], 1, 1),
+                device=hidden.device,
+                dtype=hidden.dtype,
+            )
+        duration_seconds = float(frame_count) / 25.0
+        return (conditioning, duration_seconds)
+
+
 NODE_CLASS_MAPPINGS = {
-    "MiniMaxMusic3AudioAutoPrompter": MiniMaxMusic3AudioAutoPrompter
+    "MiniMaxMusic3AudioAutoPrompter": MiniMaxMusic3AudioAutoPrompter,
+    "SaveMiniMaxMusic3RVQCache": SaveMiniMaxMusic3RVQCache,
+    "LoadMiniMaxMusic3RVQCache": LoadMiniMaxMusic3RVQCache,
+    "MiniMaxMusic3TextEncodeWithCachedReference": MiniMaxMusic3TextEncodeWithCachedReference,
 }
 
 NODE_DISPLAY_NAME_MAPPINGS = {
-    "MiniMaxMusic3AudioAutoPrompter": "MiniMax Music 3 Audio Auto-Prompter 🎵"
+    "MiniMaxMusic3AudioAutoPrompter": "MiniMax Music 3 Audio Auto-Prompter 🎵",
+    "SaveMiniMaxMusic3RVQCache": "Save MiniMax Music3 RVQ Cache 💾",
+    "LoadMiniMaxMusic3RVQCache": "Load MiniMax Music3 RVQ Cache ⚡",
+    "MiniMaxMusic3TextEncodeWithCachedReference": "MiniMax Music3 Text Encode (Cached RVQ) ⚡",
 }
+
