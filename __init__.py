@@ -255,7 +255,7 @@ class MiniMaxMusic3AudioAutoPrompter:
             print("[MiniMaxMusic3AudioAutoPrompter] Tempo Warning:", e)
             return 75.0
 
-    def parse_tags_to_prompt(self, rhythm_tag, instruments_tag, vocal_tag, vocal_expression, human_phrasing, production_tag, dynamic_progression, final_genre, final_bpm, detected_key, extra_tags):
+    def parse_tags_to_prompt(self, rhythm_tag, instruments_tag, vocal_tag, vocal_expression, human_phrasing, production_tag, dynamic_progression, final_genre, final_bpm, detected_key, extra_tags, language="zh (Chinese)"):
         rhythm_map = {
             "Steady Pop Drums (穩定流行鼓組律動)": "steady pop drum beat, punchy kick and tight snare, consistent rhythm",
             "Acoustic Kick & Snare (清脆原聲大鼓軍鼓)": "crisp acoustic drum kit, natural snare, steady tempo",
@@ -279,20 +279,42 @@ class MiniMaxMusic3AudioAutoPrompter:
         }
         i_desc = inst_map.get(instruments_tag, "acoustic grand piano, rhythmic acoustic guitar strumming")
 
+        # Inject strong language vocal priors
+        lang_vocal_prefix = ""
+        if "ja" in language:
+            lang_vocal_prefix = "Japanese "
+        elif "en" in language:
+            lang_vocal_prefix = "English "
+        elif "ko" in language:
+            lang_vocal_prefix = "Korean "
+        elif "yue" in language:
+            lang_vocal_prefix = "Cantonese "
+        elif "zh" in language:
+            lang_vocal_prefix = "Mandarin "
+
         vocal_map = {
-            "Emotional Male Vocal (深情磁性男聲)": "emotional male lead vocals, deep resonant tone",
-            "Raspy Soulful Male (沙啞靈魂撕裂感男聲)": "raspy soulful male lead vocals, passionate singing",
-            "Sweet Female Vocal (甜美抒情女聲)": "sweet emotive female lead vocals, clear melodic tone",
-            "Breathy Emotive Vocal (氣聲抒情唱腔)": "breathy emotive vocals, intimate tone",
-            "Duet Vocal Harmony (男女對唱/和聲)": "layered vocal harmonies, male and female duet",
+            "Emotional Male Vocal (深情磁性男聲)": f"emotional {lang_vocal_prefix}male lead vocals, deep resonant tone",
+            "Bright Pop Female Vocal (清亮流行女聲)": f"bright {lang_vocal_prefix}female lead vocals, clear melodic tone",
+            "Husky Soulful Male (沙啞靈魂男聲)": f"husky soulful {lang_vocal_prefix}male lead vocals, passionate singing",
+            "Ethereal Dreamy Female (空靈夢幻女聲)": f"ethereal dreamy {lang_vocal_prefix}female lead vocals, clear tone",
+            "Dynamic Powerful Belting (爆發力美聲高音)": f"powerful belting {lang_vocal_prefix}lead vocals, soaring high melody",
+            "Warm Baritone (溫暖醇厚中低音)": f"warm {lang_vocal_prefix}baritone lead vocals, smooth resonant tone",
+            "Crisp Rap / Spoken Word (清晰節奏說唱)": f"crisp rhythmic {lang_vocal_prefix}rap vocals",
+            "Raspy Soulful Male (沙啞靈魂撕裂感男聲)": f"raspy soulful {lang_vocal_prefix}male lead vocals, passionate singing",
+            "Sweet Female Vocal (甜美抒情女聲)": f"sweet emotive {lang_vocal_prefix}female lead vocals, clear melodic tone",
+            "Breathy Emotive Vocal (氣聲抒情唱腔)": f"breathy emotive {lang_vocal_prefix}vocals, intimate tone",
+            "Duet Vocal Harmony (男女對唱/和聲)": f"layered {lang_vocal_prefix}vocal harmonies, duet",
             "Instrumental Only (純音樂無人聲)": "instrumental only, no vocals",
-            "Auto / Model Default (預設)": "emotional expressive lead vocals"
+            "Auto / Model Default (預設)": f"expressive {lang_vocal_prefix}lead vocals"
         }
-        v_base = vocal_map.get(vocal_tag, "emotional male lead vocals")
+        v_base = vocal_map.get(vocal_tag, f"emotional {lang_vocal_prefix}male lead vocals")
 
         # Vocal Expression & Pitch Contour Mapping
         vexpr_map = {
             "Wide Pitch Range & Soaring Climax (寬廣音域 + 副歌高亢爆發 - 告別唸經推薦!)": "expressive vocal contours, wide pitch dynamics, soaring high melody in choruses",
+            "Dynamic Emotional Intensity (隨情緒遞進起伏 - 推薦!)": "dynamic emotional intensity, soaring chorus melody",
+            "Steady Intimate Tone (平穩敘事溫柔低語)": "intimate subtle melodic nuances, warm vocal presence",
+            "Dramatic Operatic Vibrato (戲劇張力美聲顫音)": "dramatic vibrato, operatic emotional power",
             "Soulful Melodic Vibrato (靈魂深情 + 自然顫音旋律)": "soulful melodic lines, natural vibrato, expressive pitch phrasing",
             "Intimate Breathy Nuance (貼耳氣聲 + 細膩微起伏)": "intimate subtle melodic nuances, warm vocal presence",
             "Steady Standard Delivery (標準平穩演唱)": "melodic singing tone"
@@ -498,12 +520,26 @@ class MiniMaxMusic3AudioAutoPrompter:
                 detected_bpm = 75.0
                 detected_key = "E major"
             
-            auto_genre = "Mandopop Ballad, Contemporary Pop" if "zh" in language else "Contemporary Pop, Melodic Ballad"
+            if "ja" in language:
+                auto_genre = "Japanese J-Pop Ballad, J-Rock, Anime Theme Song"
+            elif "ko" in language:
+                auto_genre = "K-Pop Ballad, Korean Drama OST"
+            elif "en" in language:
+                auto_genre = "Contemporary Western Pop, English Melodic Ballad"
+            elif "yue" in language:
+                auto_genre = "Cantopop Classic Ballad, Hong Kong Pop"
+            elif "zh" in language:
+                auto_genre = "Mandopop Ballad, Contemporary Chinese Pop"
+            else:
+                auto_genre = "Contemporary Pop, Melodic Ballad"
         except Exception as e:
             print("[MiniMaxMusic3AudioAutoPrompter] DSP Analysis Warning:", e)
             detected_bpm = 75.0
             detected_key = "E major"
-            auto_genre = "Mandopop Ballad, Contemporary Pop"
+            if "ja" in language:
+                auto_genre = "Japanese J-Pop Ballad, J-Rock, Anime Theme Song"
+            else:
+                auto_genre = "Mandopop Ballad, Contemporary Pop"
 
         final_bpm = bpm_override if bpm_override > 0.0 else round(detected_bpm, 1)
 
@@ -517,7 +553,7 @@ class MiniMaxMusic3AudioAutoPrompter:
         # Assemble Full MiniMax-Music-3 Caption from Tags
         full_caption = self.parse_tags_to_prompt(
             rhythm_tag, instruments_tag, vocal_tag, vocal_expression, human_phrasing, production_tag, dynamic_progression,
-            final_genre, final_bpm, detected_key, extra_tags_custom
+            final_genre, final_bpm, detected_key, extra_tags_custom, language=language
         )
 
         # Resolve Lyrics
